@@ -1,0 +1,6 @@
+@MockAmazonApi_HostAddress = http://localhost:5110
+
+GET {{MockAmazonApi_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

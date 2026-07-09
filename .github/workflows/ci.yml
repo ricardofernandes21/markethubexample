@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  DOTNET_VERSION: '10.0.x'
+
+jobs:
+  # ── Build & Test ─────────────────────────────────────────────────────────────
+  test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: |
+          dotnet restore src/ProductService/ProductService.sln
+          dotnet restore src/AmazonConnector/AmazonConnector.csproj
+          dotnet restore src/MockAmazonApi/MockAmazonApi.csproj
+
+      - name: Build
+        run: |
+          dotnet build src/ProductService/ProductService.sln --no-restore -c Release
+          dotnet build src/AmazonConnector/AmazonConnector.csproj --no-restore -c Release
+          dotnet build src/MockAmazonApi/MockAmazonApi.csproj --no-restore -c Release
+
+      - name: Unit Tests
+        run: >
+          dotnet test tests/ProductService.Tests.Unit/ProductService.Tests.Unit.csproj
+          --no-build -c Release
+          --logger "trx;LogFileName=unit-results.trx"
+          --results-directory ./test-results
+
+      - name: Integration Tests
+        run: >
+          dotnet test tests/ProductService.Tests.Integration/ProductService.Tests.Integration.csproj
+          --no-build -c Release
+          --logger "trx;LogFileName=integration-results.trx"
+          --results-directory ./test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: ./test-results
+
+  # ── Docker Build ─────────────────────────────────────────────────────────────
+  docker:
+    name: Docker Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ProductService image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/ProductService/ProductService.Api/Dockerfile
+          push: false
+
+      - name: Build AmazonConnector image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/AmazonConnector/Dockerfile
+          push: false
+
+      - name: Build MockAmazonApi image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: src/MockAmazonApi/Dockerfile
+          push: false
