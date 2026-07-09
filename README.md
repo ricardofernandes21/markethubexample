@@ -43,9 +43,9 @@ and ships with full observability, CI, and a React management dashboard.
 
 | Service | Host port | Purpose |
 |---------|-----------|---------|
-| `product-service` | 5102 | REST API — product CRUD |
+| `product-service` | 5102 | REST API - product CRUD |
 | `products-dashboard` | 5173 | React management UI |
-| `amazon-connector` | — | Worker — syncs to Amazon |
+| `amazon-connector` | | Worker — syncs to Amazon |
 | `mock-amazon-api` | 5200 | Fake Amazon API with random failures |
 | `postgres` | 5432 | Product data store |
 | `rabbitmq` | 5672 / 15672 | Message broker (management UI on 15672) |
@@ -156,11 +156,6 @@ markethubexample/
 `IEventPublisher` as interfaces. `Infrastructure` implements them. This keeps business logic
 free of EF Core and MassTransit dependencies and makes it straightforward to unit-test
 `ProductService` with mocks.
-
-**IEventPublisher uses primitive parameters** — the Application layer never references
-`shared/Contracts`. Primitives cross the boundary; the Infrastructure layer constructs the
-typed `ProductUpdated` message. This prevents a transitive dependency on the Contracts
-library from leaking into the domain.
 
 **Two-layer retry strategy** — Polly retries the HTTP call to Amazon up to 4 times
 (1s / 2s / 4s / 8s backoff) on 429 / 500 / 503. If all HTTP retries fail, MassTransit
